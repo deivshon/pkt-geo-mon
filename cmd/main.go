@@ -13,7 +13,7 @@ func main() {
 
 	fmt.Printf("Using interface %v\n", defaultInterface)
 
-	ipChan := make(chan string)
+	ipChan := make(chan PacketInfo)
 	go Ingestion(ipChan, defaultInterface, "")
 
 	for ipStr := range ipChan {
