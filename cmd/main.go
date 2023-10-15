@@ -13,10 +13,14 @@ func main() {
 
 	fmt.Printf("Using interface %v\n", defaultInterface)
 
-	ipChan := make(chan PacketInfo)
+	ipChan := make(chan PacketInfo, 65536)
+	countryChan := make(chan GeoInfo)
 	go Ingestion(ipChan, defaultInterface, "")
+	go Geolocation(ipChan, countryChan)
 
-	for ipStr := range ipChan {
-		fmt.Println(ipStr)
+	for country := range countryChan {
+		if country.Size > 100000 {
+
+		}
 	}
 }
