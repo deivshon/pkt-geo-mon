@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-type GeoInfo struct {
-	Country string
-	Size    int
+type geoInfo struct {
+	Country        string
+	BytesExchanged uint64
 }
 
 type ipData struct {
@@ -52,51 +52,56 @@ func getCountry(ip string, client http.Client) (ipData, error) {
 	if !exists {
 		return ipData{"", true}, fmt.Errorf("No `countryCode` field in response")
 	}
+	if country == "" {
+		return ipData{"", false}, nil
+	}
 
 	return ipData{country, true}, nil
 }
 
-func Geolocation(in <-chan PacketInfo, out chan<- GeoInfo) {
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
+	logger := log.New(os.Stdout, "[GEO] ", log.LstdFlags)
 	httpClient := http.Client{
 		Timeout: 2 * time.Second,
 	}
 
-	ticker := time.NewTicker(6 * time.Hour)
-	defer ticker.Stop()
-
-	ipsCache := make(map[string]ipData)
-	for {
-		select {
-		case <-ticker.C:
-			for k := range ipsCache {
-				delete(ipsCache, k)
-			}
-		case packet := <-in:
-			logger.Printf("GOT %v\n", packet.DestinationIP)
-			cachedIpData, exists := ipsCache[packet.DestinationIP]
-			if exists && cachedIpData.Valid {
-				logger.Printf("%v: %v (CACHED)\n", packet.DestinationIP, cachedIpData.Country)
-				out <- GeoInfo{Country: cachedIpData.Country, Size: packet.PacketSize}
-				continue
-			} else if exists && !cachedIpData.Valid {
-				logger.Printf("%v (CACHED, NOT VALID)\n", packet.DestinationIP)
+	logger.Println("Started Geolocation")
+	for buffer := range in {
+		logger.Printf("Received buffer %v\n", buffer)
+		countriesData := make(map[string]uint64)
+		for ip := range buffer {
+			bytesExchanged, exists := buffer[ip]
+			if !exists {
+				logger.Printf("Expected value for key %v\n", ip)
 				continue
 			}
 
-			ipData, err := getCountry(packet.DestinationIP, httpClient)
-			if err != nil {
-				logger.Printf("Could not get country for `%v`: %v\n", packet.DestinationIP, err)
+			var data ipData
+			for {
+				currentTry, err := getCountry(ip, httpClient)
+				if err == nil {
+					data = currentTry
+					break
+				}
+				logger.Printf("Could not get country for `%v`: %v\n", ip, err)
+
+			}
+
+			if !data.Valid {
+				logger.Printf("%v is not a valid public IP\n", ip)
 				continue
 			}
 
-			ipsCache[packet.DestinationIP] = ipData
-			if ipData.Valid {
-				out <- GeoInfo{Country: ipData.Country, Size: packet.PacketSize}
-				logger.Printf("%v: %v (API)\n", packet.DestinationIP, ipData.Country)
+			_, exists = countriesData[data.Country]
+			if exists {
+				countriesData[data.Country] += bytesExchanged
 			} else {
-				logger.Printf("%v (NOT VALID)\n", packet.DestinationIP)
+				countriesData[data.Country] = bytesExchanged
 			}
+
+			logger.Printf("%v | %v", ip, data.Country)
 		}
+
+		out <- countriesData
 	}
 }

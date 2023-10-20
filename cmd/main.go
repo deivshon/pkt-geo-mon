@@ -1,26 +1,27 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 )
 
 func main() {
+	logger := log.New(os.Stdout, "[FIN] ", log.LstdFlags)
 	defaultInterface := GetMaxInterface()
 	if defaultInterface == "" {
-		log.Fatal("Could not get default interface")
+		logger.Fatal("Could not get default interface")
 	}
 
-	fmt.Printf("Using interface %v\n", defaultInterface)
+	logger.Printf("Using interface %v\n", defaultInterface)
 
-	ipChan := make(chan PacketInfo, 65536)
-	countryChan := make(chan GeoInfo)
-	go Ingestion(ipChan, defaultInterface, "")
+	packetChan := make(chan PacketInfo, 65536)
+	ipChan := make(chan map[string]uint64)
+	countryChan := make(chan map[string]uint64)
+	go Ingestion(packetChan, defaultInterface, "")
+	go IpBuffer(packetChan, ipChan)
 	go Geolocation(ipChan, countryChan)
 
-	for country := range countryChan {
-		if country.Size > 100000 {
-
-		}
+	for currentMap := range countryChan {
+		logger.Println(currentMap)
 	}
 }
