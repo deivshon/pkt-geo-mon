@@ -59,6 +59,21 @@ func getCountry(ip string, client http.Client) (ipData, error) {
 	return ipData{country, true}, nil
 }
 
+func logCountry(logger *log.Logger, twoLetterCode string, done int, total int, ip string) {
+	if *verbose {
+		logger.Printf("% 4d/%-4d | %v | %v", done, total, twoLetterCode, ip)
+	}
+}
+
+func getTotals(buffer map[string]uint64) (int, uint64) {
+	var valuesSum uint64 = 0
+	for key := range buffer {
+		valuesSum += buffer[key]
+	}
+
+	return len(buffer), valuesSum
+}
+
 func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
 	logger := log.New(os.Stdout, "[GEO] ", log.LstdFlags)
 	httpClient := http.Client{
@@ -67,9 +82,12 @@ func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
 
 	logger.Println("Started Geolocation")
 	for buffer := range in {
-		logger.Printf("Received buffer %v\n", buffer)
+		ipsCount, totalBytes := getTotals(buffer)
+		logger.Printf("Received map with %v ips and %v bytes exchanged", ipsCount, totalBytes)
 		countriesData := make(map[string]uint64)
+		doneCount := 0
 		for ip := range buffer {
+			time.Sleep(750 * time.Millisecond)
 			bytesExchanged, exists := buffer[ip]
 			if !exists {
 				logger.Printf("Expected value for key %v\n", ip)
@@ -83,12 +101,13 @@ func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
 					data = currentTry
 					break
 				}
-				logger.Printf("Could not get country for `%v`: %v\n", ip, err)
-
+				logCountry(logger, "!!", doneCount, len(buffer), ip)
+				continue
 			}
 
 			if !data.Valid {
-				logger.Printf("%v is not a valid public IP\n", ip)
+				doneCount += 1
+				logCountry(logger, "??", doneCount, len(buffer), ip)
 				continue
 			}
 
@@ -99,7 +118,8 @@ func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
 				countriesData[data.Country] = bytesExchanged
 			}
 
-			logger.Printf("%v | %v", ip, data.Country)
+			doneCount += 1
+			logCountry(logger, data.Country, doneCount, len(buffer), ip)
 		}
 
 		out <- countriesData

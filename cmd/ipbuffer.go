@@ -6,18 +6,19 @@ import (
 	"time"
 )
 
-func IpBuffer(in <-chan PacketInfo, out chan<- map[string]uint64) {
+func IpBuffer(in <-chan PacketInfo, out chan<- map[string]uint64, period int) {
 	logger := log.New(os.Stdout, "[IPB] ", log.LstdFlags)
 	logger.Println("Started IpBuffer")
-	ticker := time.NewTicker(12 * time.Hour)
+	ticker := time.NewTicker(time.Duration(period) * time.Second)
 	defer ticker.Stop()
 
 	buffer := make(map[string]uint64)
 	for {
 		select {
 		case <-ticker.C:
-			logger.Printf("Flushing buffer %v\n", buffer)
+			logger.Println("Flushing buffer...")
 			out <- buffer
+			logger.Println("Buffer flushed")
 			buffer = make(map[string]uint64)
 		case packet := <-in:
 			_, exists := buffer[packet.DestinationIP]
