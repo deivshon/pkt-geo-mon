@@ -102,7 +102,6 @@ func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
 					break
 				}
 				logCountry(logger, "!!", doneCount, len(buffer), ip)
-				continue
 			}
 
 			if !data.Valid {
