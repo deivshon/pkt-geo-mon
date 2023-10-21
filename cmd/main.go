@@ -38,6 +38,7 @@ func main() {
 	if *bpfFilter != "" {
 		logger.Printf("Using BPF filter %v", *bpfFilter)
 	}
+
 	packetChan := make(chan PacketInfo, 65536)
 	ipChan := make(chan IpMap)
 	countryChan := make(chan GeoMap)
@@ -45,6 +46,7 @@ func main() {
 	go IpBuffer(packetChan, ipChan, *bufferPeriod)
 	go Geolocation(ipChan, countryChan)
 	go Storage(db, countryChan)
+	go Api(db)
 
 	select {}
 }

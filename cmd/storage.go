@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 )
@@ -45,7 +46,7 @@ func createMeasurement(db *sql.DB, start int64, end int64) (int64, error) {
 
 func Storage(db *sql.DB, in <-chan GeoMap) {
 	logger := log.New(os.Stdout, "[STG] ", log.LstdFlags)
-	logger.Println("Started storage")
+	logger.Println("Started Storage")
 
 	initStorage(logger, db)
 
@@ -71,4 +72,33 @@ func Storage(db *sql.DB, in <-chan GeoMap) {
 		}
 		logger.Printf("Ended save for data with id %v", id)
 	}
+}
+
+func GetCountrySum(logger *log.Logger, db *sql.DB, start int64, end int64) (map[string]uint64, error) {
+	query := `SELECT b.CountryCode, SUM(b.BytesExchanged) as TotalBytesExchanged
+	FROM BytesExchanged b
+	JOIN Measurements m ON b.MeasurementID = m.MeasurementID
+	WHERE m.StartTime >= ?
+	AND m.EndTime <= ?
+	GROUP BY b.CountryCode;
+	`
+
+	rows, err := db.Query(query, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("Could not query DB: %v", err)
+	}
+	defer rows.Close()
+
+	countriesMap := make(map[string]uint64)
+	for rows.Next() {
+		var countryCode string
+		var totalBytesExchanged uint64
+		err := rows.Scan(&countryCode, &totalBytesExchanged)
+		if err != nil {
+			return nil, fmt.Errorf("Could not scan row: %v", err)
+		}
+		countriesMap[countryCode] = totalBytesExchanged
+	}
+
+	return countriesMap, nil
 }
