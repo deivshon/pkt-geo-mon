@@ -8,6 +8,7 @@ import (
 
 var verbose = flag.Bool("v", false, "Verbose output")
 var bufferPeriod = flag.Int("p", 600, "Frequency of IPs buffer flushing in seconds")
+var bpfFilter = flag.String("f", "", "BPF expression for filtering packet captures")
 
 func main() {
 	flag.Parse()
@@ -23,10 +24,13 @@ func main() {
 	if *verbose {
 		logger.Printf("Using verbose output")
 	}
+	if *bpfFilter != "" {
+		logger.Printf("Using BPF filter `%v`", *bpfFilter)
+	}
 	packetChan := make(chan PacketInfo, 65536)
 	ipChan := make(chan map[string]uint64)
 	countryChan := make(chan map[string]uint64)
-	go Ingestion(packetChan, defaultInterface, "")
+	go Ingestion(packetChan, defaultInterface, *bpfFilter)
 	go IpBuffer(packetChan, ipChan, *bufferPeriod)
 	go Geolocation(ipChan, countryChan)
 
