@@ -10,9 +10,10 @@ import (
 	"time"
 )
 
-type geoInfo struct {
-	Country        string
-	BytesExchanged uint64
+type GeoMap struct {
+	CountryMap map[string]uint64
+	Start      int64
+	End        int64
 }
 
 type ipData struct {
@@ -74,16 +75,18 @@ func getTotals(buffer map[string]uint64) (int, uint64) {
 	return len(buffer), valuesSum
 }
 
-func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
+func Geolocation(in <-chan IpMap, out chan<- GeoMap) {
 	logger := log.New(os.Stdout, "[GEO] ", log.LstdFlags)
 	httpClient := http.Client{
 		Timeout: 2 * time.Second,
 	}
 
 	logger.Println("Started Geolocation")
-	for buffer := range in {
+	for ipMap := range in {
+		buffer := ipMap.Map
 		ipsCount, totalBytes := getTotals(buffer)
 		logger.Printf("Received map with %v ips and %v bytes exchanged", ipsCount, totalBytes)
+
 		countriesData := make(map[string]uint64)
 		doneCount := 0
 		for ip := range buffer {
@@ -121,6 +124,6 @@ func Geolocation(in <-chan map[string]uint64, out chan<- map[string]uint64) {
 			logCountry(logger, data.Country, doneCount, len(buffer), ip)
 		}
 
-		out <- countriesData
+		out <- GeoMap{CountryMap: countriesData, Start: ipMap.Start, End: ipMap.End}
 	}
 }
