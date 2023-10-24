@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const apiCooldown = 1 * time.Second
+
 type GeoMap struct {
 	CountryMap map[string]uint64
 	Start      int64
@@ -22,7 +24,7 @@ type ipData struct {
 }
 
 func getCountry(ip string, client http.Client) (ipData, error) {
-	url := "http://ip-api.com/json/" + ip + "?fields=status,message,countryCode"
+	url := "https://freeipapi.com/api/json/" + ip
 
 	response, err := client.Get(url)
 	if err != nil {
@@ -35,29 +37,21 @@ func getCountry(ip string, client http.Client) (ipData, error) {
 		return ipData{"", true}, err
 	}
 
-	var data map[string]string
+	var data map[string]any
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return ipData{"", true}, err
 	}
 
-	status, exists := data["status"]
-	if !exists {
-		return ipData{"", true}, fmt.Errorf("No `status` field in response")
-	}
-	if status != "success" {
-		return ipData{"", false}, nil
-	}
-
-	country, exists := data["countryCode"]
+	countryCode, exists := data["countryCode"].(string)
 	if !exists {
 		return ipData{"", true}, fmt.Errorf("No `countryCode` field in response")
 	}
-	if country == "" {
+	if len(countryCode) != 2 {
 		return ipData{"", false}, nil
 	}
 
-	return ipData{country, true}, nil
+	return ipData{countryCode, true}, nil
 }
 
 func logCountry(logger *log.Logger, twoLetterCode string, done int, total int, ip string) {
@@ -90,7 +84,7 @@ func Geolocation(in <-chan IpMap, out chan<- GeoMap) {
 		countriesData := make(map[string]uint64)
 		doneCount := 0
 		for ip := range buffer {
-			time.Sleep(750 * time.Millisecond)
+			time.Sleep(apiCooldown)
 			bytesExchanged, exists := buffer[ip]
 			if !exists {
 				logger.Printf("Expected value for key %v\n", ip)
@@ -105,6 +99,7 @@ func Geolocation(in <-chan IpMap, out chan<- GeoMap) {
 					break
 				}
 				logCountry(logger, "!!", doneCount, len(buffer), ip)
+				time.Sleep(apiCooldown)
 			}
 
 			if !data.Valid {
