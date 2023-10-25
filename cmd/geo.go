@@ -56,7 +56,7 @@ func getCountry(ip string, client http.Client) (ipData, error) {
 
 func logCountry(logger *log.Logger, twoLetterCode string, done int, total int, ip string) {
 	if *verbose {
-		logger.Printf("% 4d/%-4d | %v | %v", done, total, twoLetterCode, ip)
+		logger.Printf("% 6d/%-6d | %v | %v", done, total, twoLetterCode, ip)
 	}
 }
 
