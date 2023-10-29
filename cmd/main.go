@@ -5,13 +5,15 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var verbose = flag.Bool("v", false, "Verbose output")
 var bufferPeriod = flag.Int("p", 600, "Frequency of IPs buffer flushing in seconds")
-var bpfFilter = flag.String("f", "", "BPF expression for filtering packet captures")
+var bpfFilter = flag.String("f", "", "BPF expression for filtering packet captures (takes precedence over -F)")
+var bpfFilterFilePath = flag.String("F", "", "Path to a file containing the BPF expression for filtering packet captures")
 var dbPath = flag.String("d", "bytesgeo.db", "Path to the sqlite db file")
 
 func main() {
@@ -35,8 +37,14 @@ func main() {
 	if *verbose {
 		logger.Printf("Using verbose output")
 	}
-	if *bpfFilter != "" {
-		logger.Printf("Using BPF filter %v", *bpfFilter)
+	if *bpfFilter == "" && *bpfFilterFilePath != "" {
+		filter, err := os.ReadFile(*bpfFilterFilePath)
+		if err != nil {
+			logger.Fatalf("Could not read BPF filter file: %v", err)
+		}
+
+		*bpfFilter = strings.TrimSpace(string(filter))
+		logger.Printf("Using BPF filter from file %v", *bpfFilterFilePath)
 	}
 
 	packetChan := make(chan PacketInfo, 65536)

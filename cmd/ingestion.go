@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -14,14 +15,19 @@ type PacketInfo struct {
 }
 
 func Ingestion(out chan<- PacketInfo, networkInterface string, bpfFilter string) {
+	logger := log.New(os.Stdout, "[ING] ", log.LstdFlags)
+	logger.Println("Started Ingestion")
+
 	handle, err := pcap.OpenLive(networkInterface, 65575, true, pcap.BlockForever)
 	if err != nil {
-		log.Fatalf("Error starting packets capture: %v", err)
+		logger.Fatalf("Error starting packets capture: %v", err)
 	}
 	defer handle.Close()
 
 	if err := handle.SetBPFFilter(bpfFilter); err != nil {
-		log.Fatalf("Error setting BPF filter: %v", err)
+		logger.Fatalf("Error setting BPF filter: %v", err)
+	} else if bpfFilter != "" {
+		logger.Printf("Using BPF filter %v", bpfFilter)
 	}
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
