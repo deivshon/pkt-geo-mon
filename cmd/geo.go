@@ -45,7 +45,7 @@ func getCountry(ip string, client http.Client) (ipData, error) {
 
 	countryCode, exists := data["countryCode"].(string)
 	if !exists {
-		return ipData{"", true}, fmt.Errorf("No `countryCode` field in response")
+		return ipData{"", true}, fmt.Errorf("no `countryCode` field in response")
 	}
 	if len(countryCode) != 2 {
 		return ipData{"", false}, nil

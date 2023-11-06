@@ -85,7 +85,7 @@ func GetCountrySum(logger *log.Logger, db *sql.DB, start int64, end int64) (map[
 
 	rows, err := db.Query(query, start, end)
 	if err != nil {
-		return nil, fmt.Errorf("Could not query DB: %v", err)
+		return nil, fmt.Errorf("could not query DB: %v", err)
 	}
 	defer rows.Close()
 
@@ -95,7 +95,7 @@ func GetCountrySum(logger *log.Logger, db *sql.DB, start int64, end int64) (map[
 		var totalBytesExchanged uint64
 		err := rows.Scan(&countryCode, &totalBytesExchanged)
 		if err != nil {
-			return nil, fmt.Errorf("Could not scan row: %v", err)
+			return nil, fmt.Errorf("could not scan row: %v", err)
 		}
 		countriesMap[countryCode] = totalBytesExchanged
 	}
